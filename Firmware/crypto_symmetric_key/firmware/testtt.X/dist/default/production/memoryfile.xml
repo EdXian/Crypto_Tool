@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <executable name="dist/default/production/testtt.X.production.elf">
+    <memory name="program">
+      <units>bytes</units>
+      <length>32768</length>
+      <used>32711</used>
+      <free>57</free>
+    </memory>
+    <memory name="data">
+      <units>bytes</units>
+      <length>4096</length>
+      <used>2539</used>
+      <free>1557</free>
+    </memory>
+  </executable>
+</project>
