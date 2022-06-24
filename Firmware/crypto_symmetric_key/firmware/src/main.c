@@ -57,12 +57,10 @@ SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));\
 
 
 SYS_TIME_HANDLE tmrHandle_USB_hello;
-
 SYS_CONSOLE_HANDLE consoleHandleUSB;
-
 SYS_TIME_HANDLE tmrHandle;
 SYS_CONSOLE_HANDLE consoleHandle ;
-char UartWriteBuf[30];
+char UartWriteBuf[512];
 char UartReadBuf[30];
 
 
@@ -133,8 +131,8 @@ void atecc_provision(){
     atcab_is_config_locked(&lock_flag);
     if(!lock_flag){
 
-         sprintf(UartWriteBuf,"ecc608 config is unlocked\n");
-         SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
+//         sprintf(UartWriteBuf,"ecc608 config is unlocked\n");
+//         SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
         
          //write  config_slot_1
         status = atcab_read_bytes_zone(ATCA_ZONE_CONFIG, 0, 0x14, config_slot_1, 4);
@@ -164,17 +162,17 @@ void atecc_provision(){
     }else{
 //        status = atcab_write_zone(ATCA_ZONE_DATA, 4, 0, 0, pv_key, 32 );
 //        CHECK_STATUS(status);
-//        
+     
 //        status = atcab_write_zone(ATCA_ZONE_DATA, 1, 0, 0, pv_key, 32 );
 //        CHECK_STATUS(status);
-//
+
 //        status = atcab_read_zone(ATCA_ZONE_DATA, 1, 0, 0, read_pv_key, 32 );
 //        CHECK_STATUS(status);
        
         
         
-        sprintf(UartWriteBuf,"ecc608 config is locked");
-        SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
+//        sprintf(UartWriteBuf,"ecc608 config is locked");
+//        SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
     }
 
  
@@ -184,9 +182,9 @@ void atecc_provision(){
 
 atca_nonce_in_out_t host_nonce;
 
-const uint8_t num_in[] = {
+ uint8_t num_in[20] = {
     
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,    //try to use random number to fill num_in
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 
 
 };
@@ -198,9 +196,9 @@ uint8_t response[32];
 atca_mac_in_out_t host_mac;
 
 
-void atecc_verify(){
+uint8_t atecc_verify(){
     
-    
+    uint8_t ret = 0;
     // handl verification on pc
     status = atcab_nonce_base(NONCE_MODE_SEED_UPDATE, 0, num_in, rand_out);
     CHECK_STATUS(status);
@@ -233,8 +231,15 @@ void atecc_verify(){
     CHECK_STATUS(status);
     OutputData("- Digest out (Host claculated) :\r\n", response, 32);
 
+    //challenge the private key
     
-
+    for(uint8_t i=0;i<32;i++){
+        if(response[i]!=digest[i]){
+            ret=0xff;
+        }
+    }
+    
+    return ret;
 }
 
 
@@ -247,8 +252,11 @@ void test1();
 void test2();
 #endif
 
+
+uint8_t verify_text[]="verify ok\r\n";
 int main ( void )
 {
+     uint8_t ret=0;
     /* Initialize all modules */
     SYS_Initialize ( NULL );
     SYS_TIME_DelayMS(1000, &tmrHandle_USB_hello);
@@ -281,14 +289,14 @@ int main ( void )
     {
          //atecc_provision();
         LED1_Toggle();
-        status = atcab_read_config_zone(read_config_data);
-        CHECK_STATUS(status);
-        OutputData("\r\nConfig Zone :\r\n",read_config_data,ATCA_ECC_CONFIG_SIZE);
+//        status = atcab_read_config_zone(read_config_data);
+//        CHECK_STATUS(status);
+//        OutputData("\r\nConfig Zone :\r\n",read_config_data,ATCA_ECC_CONFIG_SIZE);
 
         
-        status = atcab_read_bytes_zone(ATCA_ZONE_DATA, 1, 0, read_pv_key,32 );
-        CHECK_STATUS(status);
-         OutputData("\r\nprivate key :\r\n",read_pv_key,32);
+//        status = atcab_read_bytes_zone(ATCA_ZONE_DATA, 1, 0, read_pv_key,32 );
+//        CHECK_STATUS(status);
+//         OutputData("\r\nprivate key :\r\n",read_pv_key,32);
          
 //         if(status== ATCA_EXECUTION_ERROR ){
 //             
@@ -297,9 +305,16 @@ int main ( void )
 //             
 //            }
 
-         
-         atecc_verify();
-         
+         ret = atecc_verify();
+//         
+//
+        if(ret == 0){
+                   sprintf(UartWriteBuf,"%s",verify_text);
+                    SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
+        }else{
+                     sprintf(UartWriteBuf,"verify fail");
+                    SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
+        }
          
         SYS_TIME_DelayMS( 2000, &timer );
     }
