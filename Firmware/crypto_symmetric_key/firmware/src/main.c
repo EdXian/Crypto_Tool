@@ -224,7 +224,7 @@ atca_mac_in_out_t host_mac;
 
 uint8_t atecc_verify(){
     
-    uint8_t ret = 0;
+    uint8_t ret = 1;
     // handl verification on pc
     status = atcab_nonce_base(NONCE_MODE_SEED_UPDATE, 0, num_in, rand_out);
     //CHECK_STATUS(status);
@@ -262,9 +262,10 @@ uint8_t atecc_verify(){
     for(uint8_t i=0;i<32;i++){
         if(response[i]!=digest[i]){
             ret=0xff;
+            return ret;
         }
     }
-    
+    ret = 0;
     return ret;
 }
 
@@ -406,7 +407,7 @@ int main ( void )
         
         ret = atecc_verify();
          if(ret == 0){
-             verify_ack.status = 0x55;  //0x55 pass   ///0xcc fail
+             verify_ack.status = 0x55;  
          }else{
              verify_ack.status = 0xcc;
          }

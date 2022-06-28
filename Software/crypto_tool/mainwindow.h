@@ -19,20 +19,25 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
     QSerialPort* serial;
+    void emitDeviceTableChange();
+signals:
+    void signalTablechange(void);
 private slots:
     void on_pushButtonProgram_clicked();
 
     void on_pushButtonSerialOpen_clicked();
-
+    void onDeviceTableChangeRequest();
 private:
     Ui::MainWindow *ui;
     void readData();
     void addDeviceTabieItem(QString SN,QString ProgramState,QString VerifyState,QString DeviceType);
     void updateDeviceTableItem();
     void deleteDeviceTableItem();
+    void updateLcdNumber();
     void listAvailablePorts();
     int rowCount;
     bool isSync;
+    uint16_t passcount;
     void sendProgramCmd();
     void setSyncCmd();
     mavlink_device_sn_t device_sn;

@@ -44,10 +44,11 @@ MainWindow::MainWindow(QWidget *parent)
 //    # "dark" border
 //    palette.setColor(palette.Dark, QtGui.QColor(0, 255, 0))
 
-
+ connect(this,SIGNAL(signalTablechange()),this,SLOT(onDeviceTableChangeRequest()));
    ui->lcdNumber_totalchips->setPalette(palette);
    ui->lcdNumber_failchips->setPalette(palette);
    ui->lcdNumber_passchips->setPalette(palette);
+  // connect(this,MainWindow::signalTablechange,)
 }
 
 
@@ -152,6 +153,8 @@ void MainWindow::readData(){
                     if(verify_ack.status == 0x55){
                         ui->textEdit->append(QString("verify pass"));
                         //emit the signal to handle
+                        emitDeviceTableChange();
+                        passcount++;
                     }else{
                         ui->textEdit->append(QString("verify fail"));
                     }
@@ -242,3 +245,33 @@ void MainWindow::sendProgramCmd(){
     serial->write(tdata);
 }
 
+void MainWindow::emitDeviceTableChange(){
+    emit signalTablechange();
+}
+void MainWindow::onDeviceTableChangeRequest(){
+    QByteArray arr;
+    for(uint8_t i=0;i<9;i++){
+        arr.push_back(device_sn.sn[i]);
+    }
+    QString sn = QString(arr.toHex());
+    QString vs;
+    QString ps;
+
+    passcount++;
+    ui->lcdNumber_passchips->display(passcount);
+
+
+    if(verify_ack.status==0x55){
+        vs.append(QString("pass"));
+    }else{
+        vs.append(QString("fail"));
+    }
+
+    //if(program_ack.status == )
+
+    this->addDeviceTabieItem(sn,"pass",vs,"ecc608");
+
+}
+void MainWindow::updateLcdNumber(){
+
+}
