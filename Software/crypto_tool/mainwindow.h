@@ -6,6 +6,7 @@
 #include "qserialport.h"
 #include <stdint.h>
 #include <QIODevice>
+#include <mavlink.h>
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -31,5 +32,11 @@ private:
     void deleteDeviceTableItem();
     void listAvailablePorts();
     int rowCount;
+    bool isSync;
+    void sendProgramCmd();
+    void setSyncCmd();
+    mavlink_device_sn_t device_sn;
+    mavlink_program_ack_t program_ack;
+    mavlink_verify_ack_t verify_ack;
 };
 #endif // MAINWINDOW_H

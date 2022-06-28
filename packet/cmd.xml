@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<mavlink>
+    <version>1</version>
+    <messages>
+        <!--  Smart seat start -->
+        <message id="21" name="CMD_ACK">
+            <description> ack </description>
+           
+            <field type="uint32_t" name="ack">acknowledge or not</field>
+        </message>
+        <message id="22" name="Sync">
+            <description> sync with pc </description>
+            <field type="uint8_t" name="status">timestamp</field>
+        </message>
+
+	<message id="4" name="Program">
+            <description> ack </description>
+           
+            <field type="uint32_t" name="ack">acknowledge or not</field>
+        </message>
+        <message id="5" name="Program_ack">
+            <description> sync with pc </description>
+            <field type="uint8_t" name="status">timestamp</field>
+        </message>
+
+	<message id="6" name="verify">
+            <description> ack </description>
+           
+            <field type="uint32_t" name="ack">acknowledge or not</field>
+        </message>
+        <message id="7" name="verify_ack">
+            <description> sync with pc </description>
+            <field type="uint8_t" name="status">timestamp</field>
+        </message>
+	
+
+	<message id="8" name="device_sn">
+            <description> uuid of ecc608 </description>
+            <field type="uint8_t[9]" name="sn">timestamp</field>
+        </message>
+
+    </messages>
+</mavlink>

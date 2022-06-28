@@ -56,6 +56,7 @@
 #include "peripheral/nvic/plib_nvic.h"
 #include "usb/usb_chapter_9.h"
 #include "usb/usb_device.h"
+#include "peripheral/eic/plib_eic.h"
 #include "peripheral/tc/plib_tc3.h"
 #include "system/time/sys_time.h"
 #include "usb/usb_device_cdc.h"

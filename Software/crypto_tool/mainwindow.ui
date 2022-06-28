@@ -57,9 +57,9 @@
      <widget class="QTextEdit" name="textEdit">
       <property name="geometry">
        <rect>
-        <x>440</x>
+        <x>530</x>
         <y>140</y>
-        <width>261</width>
+        <width>171</width>
         <height>291</height>
        </rect>
       </property>
@@ -103,7 +103,7 @@
      <widget class="QLabel" name="label_2">
       <property name="geometry">
        <rect>
-        <x>440</x>
+        <x>530</x>
         <y>110</y>
         <width>53</width>
         <height>16</height>
@@ -118,7 +118,7 @@
        <rect>
         <x>20</x>
         <y>140</y>
-        <width>401</width>
+        <width>501</width>
         <height>291</height>
        </rect>
       </property>
@@ -162,34 +162,73 @@
        <string>Read</string>
       </property>
      </widget>
-     <widget class="QLCDNumber" name="lcdNumber">
+     <widget class="QLCDNumber" name="lcdNumber_totalchips">
       <property name="geometry">
        <rect>
-        <x>410</x>
-        <y>20</y>
-        <width>64</width>
-        <height>23</height>
+        <x>330</x>
+        <y>30</y>
+        <width>91</width>
+        <height>41</height>
        </rect>
       </property>
      </widget>
-     <widget class="QLCDNumber" name="lcdNumber_2">
+     <widget class="QLCDNumber" name="lcdNumber_passchips">
       <property name="geometry">
        <rect>
-        <x>520</x>
-        <y>20</y>
-        <width>64</width>
-        <height>23</height>
+        <x>460</x>
+        <y>30</y>
+        <width>91</width>
+        <height>41</height>
        </rect>
       </property>
      </widget>
-     <widget class="QLCDNumber" name="lcdNumber_3">
+     <widget class="QLCDNumber" name="lcdNumber_failchips">
       <property name="geometry">
        <rect>
-        <x>630</x>
-        <y>20</y>
-        <width>64</width>
-        <height>23</height>
+        <x>580</x>
+        <y>30</y>
+        <width>91</width>
+        <height>41</height>
        </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_3">
+      <property name="geometry">
+       <rect>
+        <x>350</x>
+        <y>10</y>
+        <width>53</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Total</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_4">
+      <property name="geometry">
+       <rect>
+        <x>490</x>
+        <y>10</y>
+        <width>53</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Pass</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_5">
+      <property name="geometry">
+       <rect>
+        <x>610</x>
+        <y>10</y>
+        <width>53</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Fail</string>
       </property>
      </widget>
     </widget>

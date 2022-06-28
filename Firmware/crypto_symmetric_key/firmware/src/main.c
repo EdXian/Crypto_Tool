@@ -32,6 +32,8 @@
 
 #include "cryptoauthlib.h"
 #include "host/atca_host.h"
+//#include "cmd.h"
+#include "mavlink.h"
 // *****************************************************************************
 // *****************************************************************************
 // Section: Main Entry Point
@@ -60,7 +62,7 @@ SYS_TIME_HANDLE tmrHandle_USB_hello;
 SYS_CONSOLE_HANDLE consoleHandleUSB;
 SYS_TIME_HANDLE tmrHandle;
 SYS_CONSOLE_HANDLE consoleHandle ;
-char UartWriteBuf[512];
+char UartWriteBuf[128];
 char UartReadBuf[30];
 
 
@@ -117,8 +119,8 @@ SYS_TIME_HANDLE timer = SYS_TIME_HANDLE_INVALID;
  
  uint8_t  read_pv_key[32];
  
-void atecc_provision(){
-    
+uint8_t atecc_provision(){
+    uint8_t ret= 0;
     bool lock_flag = false;
     //config slot 1 0x16 0x17 8080
     //key slot 1   0x62 0x63 3e00
@@ -136,29 +138,40 @@ void atecc_provision(){
         
          //write  config_slot_1
         status = atcab_read_bytes_zone(ATCA_ZONE_CONFIG, 0, 0x14, config_slot_1, 4);
-        CHECK_STATUS(status);
+        //CHECK_STATUS(status);
         
         config_slot_1[2] =  0x80 ;
         config_slot_1[3] =  0x80 ;
          
         status = atcab_write_bytes_zone(ATCA_ZONE_CONFIG, 0, 0x14, config_slot_1, 4);
-        CHECK_STATUS(status);
-
+        //CHECK_STATUS(status);
+        if(status == ATCA_SUCCESS){
+            ret|=(1<<2);
+        }
         // write key_slot_1
         status = atcab_read_bytes_zone(ATCA_ZONE_CONFIG, 0, 0x60, key_slot_1, 4);
-        CHECK_STATUS(status);
+        //CHECK_STATUS(status);
         
         key_slot_1[2] =  0x3e ;
         key_slot_1[3] =  0x00 ;
 
         status = atcab_write_bytes_zone(ATCA_ZONE_CONFIG, 0, 0x60, key_slot_1, 4);
-        CHECK_STATUS(status);
-         
+        //CHECK_STATUS(status);
+        if(status == ATCA_SUCCESS){
+            ret|=(1<<3);
+        }
          
         status = atcab_lock_config_zone();
-        CHECK_STATUS(status);
-    
-    
+        //CHECK_STATUS(status);
+        
+        status = atcab_write_zone(ATCA_ZONE_DATA, 1, 0, 0, pv_key, 32 );
+        
+        if(status == ATCA_SUCCESS){
+            ret|=(1<<4);
+        }
+        
+        status = atcab_lock_data_zone();
+        
     }else{
 //        status = atcab_write_zone(ATCA_ZONE_DATA, 4, 0, 0, pv_key, 32 );
 //        CHECK_STATUS(status);
@@ -168,14 +181,27 @@ void atecc_provision(){
 
 //        status = atcab_read_zone(ATCA_ZONE_DATA, 1, 0, 0, read_pv_key, 32 );
 //        CHECK_STATUS(status);
-       
-        
-        
+      
 //        sprintf(UartWriteBuf,"ecc608 config is locked");
 //        SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
     }
-
- 
+    
+    
+    atcab_is_config_locked(&lock_flag);
+    if(lock_flag){
+        ret|=(1<<0);
+    }else{
+        ret&=~(1<<0);
+    }
+    
+    atcab_is_data_locked(&lock_flag);
+    
+     if(lock_flag){
+        ret|=(1<<1);
+    }else{
+        ret&=~(1<<1);
+    }
+    return ret;
 }
 
 
@@ -201,7 +227,7 @@ uint8_t atecc_verify(){
     uint8_t ret = 0;
     // handl verification on pc
     status = atcab_nonce_base(NONCE_MODE_SEED_UPDATE, 0, num_in, rand_out);
-    CHECK_STATUS(status);
+    //CHECK_STATUS(status);
     OutputData("- Random number response:\r\n", rand_out, 32);
 
     host_nonce.mode = NONCE_MODE_SEED_UPDATE;
@@ -210,12 +236,12 @@ uint8_t atecc_verify(){
     host_nonce.rand_out = rand_out;
     host_nonce.temp_key = &host_tempkey;
     status = atcah_nonce(&host_nonce);
-    CHECK_STATUS(status);
+    //CHECK_STATUS(status);
     OutputData("- Host Tempkey:\r\n", host_tempkey.value, 32);
     
     
     status = atcab_mac(MAC_MODE_BLOCK2_TEMPKEY|MAC_MODE_INCLUDE_SN, 1, NULL, digest);
-    CHECK_STATUS(status);
+    //CHECK_STATUS(status);
     OutputData("- digest response:\r\n", digest, 32);
    
     host_mac.mode = MAC_MODE_BLOCK2_TEMPKEY|MAC_MODE_INCLUDE_SN;
@@ -228,7 +254,7 @@ uint8_t atecc_verify(){
     host_mac.response = response;
     host_mac.temp_key = &host_tempkey;
     status = atcah_mac(&host_mac);
-    CHECK_STATUS(status);
+    //CHECK_STATUS(status);
     OutputData("- Digest out (Host claculated) :\r\n", response, 32);
 
     //challenge the private key
@@ -254,6 +280,67 @@ void test2();
 
 
 uint8_t verify_text[]="verify ok\r\n";
+uint16_t readCountGet = 0;
+uint16_t readBuffer[50]={0};
+
+mavlink_message_t msg;
+mavlink_status_t msg_status;
+mavlink_message_t  rmsg;
+
+uint8_t parse_state = 0;
+uint8_t rdata[50];
+uint8_t tdata[50];
+extern SYSTEM_OBJECTS sysObj;
+SYS_STATUS sysstatus;
+
+mavlink_sync_t sync;
+mavlink_program_ack_t program_ack;
+mavlink_verify_ack_t  verify_ack;
+mavlink_device_sn_t sn;
+mavlink_message_t msg;
+uint16_t msg_len;
+
+void output_device_status(){
+    
+    
+    mavlink_msg_program_ack_encode(0,0,&rmsg,&program_ack);
+    msg_len = mavlink_msg_to_send_buffer(tdata, &rmsg);
+    SYS_CONSOLE_Write(consoleHandleUSB, tdata, msg_len);
+    memset(tdata,0,sizeof(tdata));
+    
+          SYS_TIME_DelayMS( 100, &timer );
+         while(!SYS_TIME_DelayIsComplete(timer));
+         
+    mavlink_msg_verify_ack_encode(0,0,&rmsg,&verify_ack);
+    msg_len = mavlink_msg_to_send_buffer(tdata, &rmsg);
+    SYS_CONSOLE_Write(consoleHandleUSB, tdata, msg_len);
+    memset(tdata,0,sizeof(tdata));
+    
+          SYS_TIME_DelayMS( 100, &timer );
+         while(!SYS_TIME_DelayIsComplete(timer));
+    
+//    for(uint8_t i=0;i<8;i++){
+//        sn.sn[i] = i;
+//    }
+    
+          
+    mavlink_msg_device_sn_encode(0,0,&rmsg,&sn);
+    msg_len = mavlink_msg_to_send_buffer(tdata, &rmsg);
+    SYS_CONSOLE_Write(consoleHandleUSB, tdata, msg_len);
+    memset(tdata,0,sizeof(tdata));
+    
+          SYS_TIME_DelayMS( 100, &timer );
+         while(!SYS_TIME_DelayIsComplete(timer));
+}
+
+
+static bool triggered=false;
+static void EIC_User_Handler(uintptr_t context)
+{
+       // output_device_status();
+    triggered = true;
+}
+
 int main ( void )
 {
      uint8_t ret=0;
@@ -265,19 +352,20 @@ int main ( void )
 //    consleHandlePLIB = SYS_CONSOLE_HandleGet( SYS_CONSOLE_INDEX_0 );
 //    sprintf(UartWriteBuf, "Hello world !(PLIB)\r\n");
 //    SYS_CONSOLE_Write(consoleHandlePLIB, UartWriteBuf, strlen(UartWriteBuf));
-    //consoleHandleUSB = SYS_CONSOLE_HandleGet( SYS_CONSOLE_INDEX_0);
-    
+    consoleHandleUSB = SYS_CONSOLE_HandleGet( SYS_CONSOLE_INDEX_0);
+    EIC_CallbackRegister(EIC_PIN_4,EIC_User_Handler, 0);
+
     
     LED1_Set();
     status = atcab_init(&atecc608_0_init_data);
-    CHECK_STATUS(status);
+    //CHECK_STATUS(status);
     
     atcab_read_serial_number((uint8_t*)&serial_number);
     OutputData("\r\nSerial Number:\r\n",serial_number,ATCA_SERIAL_NUM_SIZE);
-    CHECK_STATUS(status);
+    //CHECK_STATUS(status);
 
     atcab_read_config_zone(read_config_data);
-    CHECK_STATUS(status);
+    //CHECK_STATUS(status);
     OutputData("\r\nConfig Zone :\r\n",read_config_data,ATCA_ECC_CONFIG_SIZE);
     
     
@@ -285,21 +373,127 @@ int main ( void )
  while ( true )
     {       
     
+    if( triggered )
+    {
+        
+        LED1_Set();
+        status = atcab_init(&atecc608_0_init_data);
+        //CHECK_STATUS(status);
+         //atecc_provision();
+//        LED1_Toggle();
+        atcab_read_serial_number((uint8_t*)&serial_number);
+        for(uint8_t i=0;i<9;i++){
+           sn.sn[i] =  serial_number[i] ;
+        }
+         mavlink_msg_device_sn_encode(0,0,&msg,&sn);
+         msg_len = mavlink_msg_to_send_buffer(tdata, &msg);
+         SYS_CONSOLE_Write(consoleHandleUSB, tdata, msg_len);
+        //OutputData("\r\nSerial Number:\r\n",serial_number,ATCA_SERIAL_NUM_SIZE);
+       // CHECK_STATUS(status);
+        SYS_TIME_DelayMS(300, &timer );
+        while(!SYS_TIME_DelayIsComplete(timer));
+        triggered=false;
+        
+        
+        ret = atecc_provision();
+        
+        program_ack.status=ret;
+        
+        mavlink_msg_program_ack_encode(0,0,&msg,&program_ack);
+        msg_len = mavlink_msg_to_send_buffer(tdata, &msg);
+        SYS_CONSOLE_Write(consoleHandleUSB, tdata, msg_len);
+        
+        
+        ret = atecc_verify();
+         if(ret == 0){
+             verify_ack.status = 0x55;  //0x55 pass   ///0xcc fail
+         }else{
+             verify_ack.status = 0xcc;
+         }
+        
+        
+        mavlink_msg_verify_ack_encode(0,0,&msg,&verify_ack);
+        msg_len = mavlink_msg_to_send_buffer(tdata, &msg);
+        SYS_CONSOLE_Write(consoleHandleUSB, tdata, msg_len);
+        
+//        if(ret == 0){
+//                   sprintf(UartWriteBuf,"%s",verify_text);
+//                    SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
+//        }else{
+//                     sprintf(UartWriteBuf,"verify fail");
+//                    SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
+//        }
+
+    }
+        /* Maintain state machines of all polled MPLAB Harmony modules. */
+//        SERCOM4_USART_Write("test\n",5);
+      //delay();
+      
+        SYS_Tasks ( );
+    }
+
+    /* Execution should not come here during normal operation */
+
+    return ( EXIT_FAILURE );
+}
+
+
+/*
+int main ( void )
+{
+     uint8_t ret=0;
+
+    SYS_Initialize ( NULL );
+    EIC_CallbackRegister(EIC_PIN_4,EIC_User_Handler, 0);
+    SYS_TIME_DelayMS(1000, &tmrHandle_USB_hello);
+    
+    SYS_TIME_DelayMS( 1000, &timer );
+//    consleHandlePLIB = SYS_CONSOLE_HandleGet( SYS_CONSOLE_INDEX_0 );
+//    sprintf(UartWriteBuf, "Hello world !(PLIB)\r\n");
+//    SYS_CONSOLE_Write(consoleHandlePLIB, UartWriteBuf, strlen(UartWriteBuf));
+    consoleHandleUSB = SYS_CONSOLE_HandleGet( SYS_CONSOLE_INDEX_0);
+
+         status = atcab_init(&atecc608_0_init_data);
+   LED1_Set();
+
+ while ( true )
+    {     
+     
+//     if(triggered){
+//         
+//         status = atcab_read_serial_number(serial_number);
+////         if(status == ATCA_SUCCESS){
+////                    for(uint8_t i=0;i<ATCA_SERIAL_NUM_SIZE;i++){
+////                    sn.sn[i]   =0x11;
+////                 }
+////         }else{
+////              for(uint8_t i=0;i<ATCA_SERIAL_NUM_SIZE;i++){
+////                    sn.sn[i]   = 0xff;
+////                 }
+////         }
+//
+//         //ATCA_SERIAL_NUM_SIZE
+//         
+//         output_device_status();
+//    
+//         triggered =  false;
+//     }
+  
     if( SYS_TIME_DelayIsComplete(timer) )
     {
          //atecc_provision();
         LED1_Toggle();
-//        status = atcab_read_config_zone(read_config_data);
-//        CHECK_STATUS(status);
-//        OutputData("\r\nConfig Zone :\r\n",read_config_data,ATCA_ECC_CONFIG_SIZE);
+        status = atcab_read_config_zone(read_config_data);
+        CHECK_STATUS(status);
+        OutputData("\r\nConfig Zone :\r\n",read_config_data,ATCA_ECC_CONFIG_SIZE);
 
         
-//        status = atcab_read_bytes_zone(ATCA_ZONE_DATA, 1, 0, read_pv_key,32 );
-//        CHECK_STATUS(status);
-//         OutputData("\r\nprivate key :\r\n",read_pv_key,32);
+        status = atcab_read_bytes_zone(ATCA_ZONE_DATA, 1, 0, read_pv_key,32 );
+        CHECK_STATUS(status);
+         OutputData("\r\nprivate key :\r\n",read_pv_key,32);
          
 //         if(status== ATCA_EXECUTION_ERROR ){
-//             
+           
 //                sprintf(UartWriteBuf,"%d\n",status);
 //                SYS_CONSOLE_Write(consoleHandleUSB, UartWriteBuf, strlen(UartWriteBuf));
 //             
@@ -318,20 +512,10 @@ int main ( void )
          
         SYS_TIME_DelayMS( 2000, &timer );
     }
-        /* Maintain state machines of all polled MPLAB Harmony modules. */
-//        SERCOM4_USART_Write("test\n",5);
-      //delay();
-      
+    
         SYS_Tasks ( );
     }
 
-    /* Execution should not come here during normal operation */
-
     return ( EXIT_FAILURE );
 }
-
-
-/*******************************************************************************
- End of File
 */
-

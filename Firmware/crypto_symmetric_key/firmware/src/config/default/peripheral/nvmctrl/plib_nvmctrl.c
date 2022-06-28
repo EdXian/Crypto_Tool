@@ -67,42 +67,6 @@ void NVMCTRL_CacheInvalidate(void)
 {
     NVMCTRL_REGS->NVMCTRL_CTRLA = (uint16_t)(NVMCTRL_CTRLA_CMD_INVALL | NVMCTRL_CTRLA_CMDEX_KEY);
 }
-bool NVMCTRL_RWWEEPROM_Read( uint32_t *data, uint32_t length, const uint32_t address )
-{
-    uint32_t *paddress = (uint32_t*)address;
-    (void)memcpy(data, paddress, length);
-    return true;
-}
-
-bool NVMCTRL_RWWEEPROM_PageWrite ( uint32_t *data, const uint32_t address )
-{
-    uint32_t i = 0U;
-    uint32_t * paddress = (uint32_t *)address;
-
-    /* Writing 32-bit words in the given address */
-    for ( i = 0U; i < (NVMCTRL_RWWEEPROM_PAGESIZE/4U); i++)
-    {
-        *paddress = *(data + i);
-        paddress++;
-    }
-
-     /* Set address and command */
-    NVMCTRL_REGS->NVMCTRL_ADDR = address >> 1U;
-
-    NVMCTRL_REGS->NVMCTRL_CTRLA = (uint16_t)(NVMCTRL_CTRLA_CMD_RWWEEWP | NVMCTRL_CTRLA_CMDEX_KEY);
-
-    return true;
-}
-
-bool NVMCTRL_RWWEEPROM_RowErase( uint32_t address )
-{
-     /* Set address and command */
-    NVMCTRL_REGS->NVMCTRL_ADDR = address >> 1U;
-
-    NVMCTRL_REGS->NVMCTRL_CTRLA = (uint16_t)(NVMCTRL_CTRLA_CMD_RWWEEER | NVMCTRL_CTRLA_CMDEX_KEY);
-
-    return true;
-}
 bool NVMCTRL_Read( uint32_t *data, uint32_t length, const uint32_t address )
 {
     uint32_t *paddress = (uint32_t*)address;
@@ -132,10 +96,6 @@ bool NVMCTRL_PageBufferCommit( const uint32_t address)
     /* Set address and command */
     NVMCTRL_REGS->NVMCTRL_ADDR = address >> 1U;
 
-    if (address >= NVMCTRL_RWWEEPROM_START_ADDRESS)
-    {
-        command = NVMCTRL_CTRLA_CMD_RWWEEWP;
-    }
 
     NVMCTRL_REGS->NVMCTRL_CTRLA = (uint16_t)(command | NVMCTRL_CTRLA_CMDEX_KEY);
 
